@@ -1,29 +1,17 @@
 FROM centos
 
-# yum アップデートとcronのインストール
+# update yum
 RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-* && \
     sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-* && \
     yum update -y --disableplugin=fastestmirror && \
-    yum install -y epel-release --disableplugin=fastestmirror && \
-    yum install -y --disableplugin=fastestmirror sudo cronie
+    yum install -y epel-release --disableplugin=fastestmirror
 
-# PAMの設定
-RUN sed -i -e '/pam_loginuid.so/s/^/#/' /etc/pam.d/crond
-
-# Timezone 設定
-RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial && \
-    dnf -y upgrade && \
-    dnf -y install glibc-locale-source && \
-    dnf clean all && \
-    localedef -f UTF-8 -i ja_JP ja_JP.UTF-8 && \
-    ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
-
+# set env
 ENV LANG="ja_JP.UTF-8" \
     LANGUAGE="ja_JP:ja" \
-    LC_ALL="ja_JP.UTF-8" \
     TZ="Asia/Tokyo"
 
-# lha の install
+# install lha
 RUN yum install -y wget && \
     yum install -y unzip && \
     yum install -y automake && \
@@ -41,8 +29,23 @@ RUN yum install -y wget && \
     make check && \
     make install
 
-# Dockerfileと同じ階層の"cron.d"フォルダ内にcronの処理スクリプトを格納しておく
-ADD cron.d /etc/cron.d/
-RUN chmod 0644 /etc/cron.d/*
+# install rbenv
+RUN yum install -y git && \
+    git clone https://github.com/sstephenson/rbenv.git ~/.rbenv && \
+    git clone https://github.com/sstephenson/ruby-build.git ~/.rbenv/plugins/ruby-build && \
+    ~/.rbenv/plugins/ruby-build/install.sh
+ENV PATH ~/.rbenv/bin:$PATH
+RUN echo 'eval "$(rbenv init -)"' >> /etc/profile.d/rbenv.sh && \
+    echo 'eval "$(rbenv init -)"' >> .bashrc
 
-CMD crond -n
+# install ruby
+RUN yum install -y openssl-devel zlib-devel && \
+    bash -lc "rbenv install 3.1.0" && \
+    bash -lc "rbenv global 3.1.0"
+
+# bundle install
+ADD ./app/upserter/Gemfile .
+ADD ./app/upserter/Gemfile.lock .
+RUN bash -lc "bundle install"
+
+CMD /usr/sbin/init

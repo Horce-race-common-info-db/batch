@@ -11,3 +11,5 @@ EOS
 sh ../converter/convert_all.sh << EOS
 ${FILEDATE}
 EOS
+
+ruby ../upserter/upsert.rb ${FILEDATE}
