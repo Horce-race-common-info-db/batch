@@ -1,0 +1,5 @@
+app/converter
+app/downloader
+app/files
+app/upserter
+*.DS_Store
